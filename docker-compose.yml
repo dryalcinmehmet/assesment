@@ -1,0 +1,67 @@
+version: '3.7'
+
+services:
+  web:
+    image: 127.0.0.1:5000/assesment:latest
+    build: ./source
+    command: python manage.py runserver 0.0.0.0:8001
+    volumes:
+      - ./source/:/app/
+    ports:
+      - 8001:8001
+    env_file:
+      - ./.env.dev
+    depends_on:
+      - db
+    deploy:
+      mode: replicated
+      replicas: 6
+      placement:
+        constraints: [ node.role == worker ]
+      restart_policy:
+        condition: on-failure
+
+  db:
+    image: postgres:12.0-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env.dev.db
+
+  portainer:
+    image: portainer/portainer-ce
+    restart: always
+    container_name: portainer
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    deploy:
+      placement:
+        constraints: [ node.role == manager ]
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    privileged: true
+    user: root
+    ports:
+      - 8081:8080
+      - 50000:50000
+    container_name: jenkins
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/local/bin/docker:/usr/local/bin/docker
+      - jenkins_data:/var/jenkins_home
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [ node.role == worker ]
+      restart_policy:
+        condition: on-failure
+volumes:
+  postgres_data:
+  portainer_data:
+  jenkins_data:
